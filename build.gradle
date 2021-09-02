@@ -1,0 +1,65 @@
+/*
+ * Copyright 2021 Cyface GmbH
+ *
+ * This file is part of the Cyface Publish Plugin for Android.
+ *
+ * The Cyface Publish Plugin for Android is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * The Cyface Publish Plugin for Android is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with the Cyface Publish Plugin for Android. If not, see <http://www.gnu.org/licenses/>.
+ */
+
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+    dependencies {
+        classpath("com.android.tools.build:gradle:7.0.1")
+    }
+}
+
+plugins {
+    id 'groovy-gradle-plugin'
+    id 'maven-publish'
+}
+
+group = "de.cyface"
+version = "0.0.0"
+
+repositories {
+    gradlePluginPortal() // so that external plugins can be resolved in dependencies section
+}
+
+publishing {
+    // Authenticate at the repository
+    repositories {
+        maven {
+            url = uri("https://maven.pkg.github.com/cyface-de/android-publish")
+            credentials {
+                username = project.findProperty("github.user").toString()
+                password = project.findProperty("github.token").toString()
+            }
+
+            /*
+             * Use this instead of the above to publish to a local folder under "build/repo".
+             * This is useful for debugging the publication code.
+             */
+            //url = layout.buildDirectory.dir("repo")
+        }
+    }
+}
+
+// Followed: https://docs.gradle.org/current/samples/sample_publishing_convention_plugins.html
+tasks.named('publish') {
+    dependsOn('check')
+}

@@ -1,0 +1,130 @@
+/*
+ * Copyright 2021 Cyface GmbH
+ *
+ * This file is part of the Cyface Publish Plugin for Android.
+ *
+ * The Cyface Publish Plugin for Android is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * The Cyface Publish Plugin for Android is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with the Cyface Publish Plugin for Android. If not, see <http://www.gnu.org/licenses/>.
+ */
+
+plugins {
+    id 'com.android.library'
+    id 'maven-publish'
+}
+
+/*
+ * The following code for publication was contributed by an external source (RM) back in 2017
+ * or 2018. It was heavily refactored on 25th of August 2021 to work with Gradle 7.0.2. From this
+ * refactoring it seems that the code creating Javadoc and Source Files did never work at all, which
+ * was not checked. It did contain spelling mistakes, which caused no errors due to the dynamic
+ * nature of the Groovy language.
+ * The biggest problem was that it was not compatible with the current way Gradle likes tasks to be
+ * created. The refactoring tries to substitute the old call to the task() method with calls to the
+ * more dynamic tasks.named() and tasks.register(). The benefit is that tasks are created on demand
+ * which should speed up the build process if certain tasks are not needed at all.
+ * See: https://docs.gradle.org/7.2/userguide/more_about_tasks.html
+ *
+ * The goal of this code is to create artifacts for publication only for the two release variants for
+ * Cyface and Movebis. Each Artifact is packaged together with its Javadoc and Sources for easy
+ * reference.
+ */
+
+// Setup Javadoc and source tasks for all build variants.
+project.android.libraryVariants.all { variant ->
+
+    def javaDocDestDir = file("${buildDir}/docs/${variant.name}Javadoc")
+    def javadocTaskName = "${variant.name}Javadoc"
+    def javadoc = tasks.create(javadocTaskName, Javadoc) {
+        description "Generates Javadoc for ${variant.name}."
+        source = variant.javaCompileProvider.get().source
+        destinationDir = javaDocDestDir
+        classpath += files(android.getBootClasspath().join(File.pathSeparator))
+        def compileClassPath = variant.javaCompileProvider.get().classpath
+        classpath += files(compileClassPath)
+        options.links("http://docs.oracle.com/javase/7/docs/api/")
+        options.links("http://d.android.com/reference/")
+        exclude '**/BuildConfig.java'
+        exclude '**/R.java'
+        failOnError false
+    }
+
+    tasks.register("${variant.name}JavadocJar", Jar) {
+        dependsOn "${javadocTaskName}"
+        description "Puts Javadoc for ${variant.name} in a jar."
+        archiveClassifier.set('javadoc')
+        from javadoc.destinationDir
+    }
+
+    def sourceDirs = variant.sourceSets.collect {
+        it.javaDirectories // includes Kotlin sources
+    }
+
+    tasks.register("${variant.name}SourcesJar", Jar) {
+        description "Puts sources for ${variant.name} in a jar."
+        from sourceDirs
+        archiveClassifier.set('sources')
+    }
+}
+
+// This is probably required to run Javadoc and Source creation on each invocation of publish
+publish.dependsOn 'assemble'
+
+publishing {
+       // Authenticate at the repository
+        repositories {
+            maven {
+                url = uri("https://maven.pkg.github.com/cyface-de/android-backend")
+                credentials {
+                    username = project.findProperty("github.user").toString()
+                    password = project.findProperty("github.token").toString()
+                }
+            }
+
+            /*
+             * Uncomment this to get all publications to a local folder under "build/repo".
+             * This is useful for debugging the publication code without uploading stuff to the
+             * server.
+             */
+            /*maven {
+                name = 'myRepo'
+                url = layout.buildDirectory.dir("repo")
+            }*/
+        }
+    // Create publications for all release variants.
+    publications {
+        project.android.libraryVariants.all { variant ->
+
+            // Only publish full release variants
+            def isDebug = variant.getBuildType().name == 'debug'
+            def isFlavored = !variant.flavorName.isEmpty()
+            def flavor = variant.flavorName.replace('_', '-')
+            def isMock = isFlavored && flavor.contains('Mock')
+            if (isDebug || isMock) {
+                return
+            }
+
+            // Configure artifacts
+            "${project.name}${variant.name.capitalize()}"(MavenPublication) {
+                groupId = 'de.cyface'
+                // The artifactId must not contain upper case chars [STAD-234]
+                artifactId "${project.name}${flavor.contains('movebis') ? 'movebis' : ''}"
+                project.logger.lifecycle('artifactId: ' + artifactId)
+                version android.defaultConfig.versionName
+                artifact(variant.packageLibraryProvider.get().archivePath)
+                // Put javadoc and sources into jar
+                artifact(tasks.named("${variant.name}JavadocJar"))
+                artifact(tasks.named("${variant.name}SourcesJar"))
+            }
+        }
+    }
+}

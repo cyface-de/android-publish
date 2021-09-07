@@ -22,6 +22,13 @@ jobs:
           distribution: 'zulu'
           java-version: '11'
 
+      - name: Add gradle.properties
+        run: |
+          # Use the repository's automatically set up token to pushlish to the registry
+          cp gradle.properties.template gradle.properties
+          echo "githubUser=${{ github.actor }}" >> gradle.properties
+          echo "githubToken=${{ secrets.GITHUB_TOKEN }}" >> gradle.properties
+
       - name: Publish with Gradle
         run: ./gradlew publish
 

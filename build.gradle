@@ -34,7 +34,7 @@ plugins {
 }
 
 group = "de.cyface"
-version = "0.0.0"
+version = "1.0.0"
 
 repositories {
     gradlePluginPortal() // so that external plugins can be resolved in dependencies section
@@ -46,8 +46,8 @@ publishing {
         maven {
             url = uri("https://maven.pkg.github.com/cyface-de/android-publish")
             credentials {
-                username = project.findProperty("github.user").toString()
-                password = project.findProperty("github.token").toString()
+                username = project.findProperty("githubUser").toString()
+                password = project.findProperty("githubToken").toString()
             }
 
             /*

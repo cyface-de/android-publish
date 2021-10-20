@@ -34,7 +34,7 @@ plugins {
 }
 
 group = "de.cyface"
-version = "1.0.0"
+version = "1.0.1"
 
 repositories {
     gradlePluginPortal() // so that external plugins can be resolved in dependencies section

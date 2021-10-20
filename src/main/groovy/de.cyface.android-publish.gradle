@@ -85,8 +85,8 @@ publishing {
             maven {
                 url = uri("https://maven.pkg.github.com/cyface-de/android-backend")
                 credentials {
-                    username = project.findProperty("github.user").toString()
-                    password = project.findProperty("github.token").toString()
+                    username = project.findProperty("githubUser").toString()
+                    password = project.findProperty("githubToken").toString()
                 }
             }
 

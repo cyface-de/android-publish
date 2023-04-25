@@ -16,9 +16,8 @@
  * You should have received a copy of the GNU General Public License
  * along with the Cyface Publish Plugin for Android. If not, see <http://www.gnu.org/licenses/>.
  */
-
 buildscript {
-    ext.gradle_version = '7.4.2'
+    ext.gradle_version = '8.0.0'
 
     repositories {
         google()

@@ -1,2 +1,5 @@
+# Needs to point to JDK 17 (embedded in android-studio now)
+org.gradle.java.home=
+
 githubUser=
 githubToken=

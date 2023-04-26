@@ -74,10 +74,53 @@ project.android.libraryVariants.all { variant ->
         from sourceDirs
         archiveClassifier.set('sources')
     }
+
+    // Attempt to define dependency (Gradle 8 requirement), but does not work [RFR-412]
+    /*def isDebug = variant.getBuildType().name == 'debug'
+    def isFlavored = !variant.flavorName.isEmpty()
+    def flavor = variant.flavorName.replace('_', '-')
+    def isMock = isFlavored && flavor.contains('Mock')
+    if (!isDebug && !isMock) {
+        tasks.named("publish${project.name.capitalize()}${variant.name.capitalize()}PublicationToMavenRepository") {
+            println "dependsOn publish${project.name.capitalize()}${variant.name.capitalize()}PublicationToMavenRepository on ${variant.name}JavadocJar"
+            dependsOn("${variant.name}JavadocJar")
+            dependsOn("${variant.name}SourcesJar")
+        }
+        tasks.named("publish${project.name.capitalize()}${variant.name.capitalize()}PublicationToMavenLocal") {
+            println "dependsOn publish${project.name.capitalize()}${variant.name.capitalize()}PublicationToMavenLocal on ${variant.name}JavadocJar"
+            dependsOn("${variant.name}JavadocJar")
+            dependsOn("${variant.name}SourcesJar")
+        }
+    }*/
 }
 
 // This is probably required to run Javadoc and Source creation on each invocation of publish
 publish.dependsOn 'assemble'
+
+// Attempt to define dependency for error occurring in Gradle 8 [RFR-412]
+/*tasks.withType(PublishToMavenRepository) { task ->
+    println "task: ${task.name}"
+    def projectName = "${project.name.capitalize()}"
+    println "project: ${projectName}"
+    def match = task.name =~ /^publish($projectName)(.*)PublicationTo(.*)$/
+    def variantName = "${match[0][2]}" // Release (persistence) or e.g. CyfaceFullRelease
+    // For some reasons, the publish task is also dependent on the other projectFlavor javadocJar
+    //def variant = variantName.uncapitalize()
+    def suffix = variantName.replace("Cyface", "").replace("Movebis", "")
+    // Persistence
+    if (suffix == "Release") {
+        def variant = suffix.uncapitalize()
+        println "dependsOn ${variant}SourcesJar/JavadocJar"
+        dependsOn(["${variant}JavadocJar", "${variant}SourcesJar"])
+    }
+    // Datacapturing, Synchronization
+    else {
+        def variant = "movebis${suffix}"
+        def variant2 = "cyface${suffix}"
+        println "dependsOn ${variant}JavadocJar/SourcesJar ${variant2}JavadocJar/SourcesJar"
+        dependsOn(["${variant}JavadocJar", "${variant}SourcesJar", "${variant2}JavadocJar", "${variant2}SourcesJar"])
+    }
+}*/
 
 publishing {
        // Authenticate at the repository
@@ -122,6 +165,8 @@ publishing {
                 version android.defaultConfig.versionName
                 artifact(variant.packageLibraryProvider.get().archivePath)
                 // Put javadoc and sources into jar
+                println "publish dependency: ${project.name}${variant.name.capitalize()} on ${variant.name}JavadocJar/SourcesJar"
+                println ""
                 artifact(tasks.named("${variant.name}JavadocJar"))
                 artifact(tasks.named("${variant.name}SourcesJar"))
             }

@@ -17,7 +17,7 @@
  * along with the Cyface Publish Plugin for Android. If not, see <http://www.gnu.org/licenses/>.
  */
 buildscript {
-    ext.gradle_version = '8.0.0'
+    ext.gradle_version = '7.4.2' // Major release available but breaks publish [RFR-412]
 
     repositories {
         google()

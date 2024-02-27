@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Cyface GmbH
+ * Copyright 2021-2024 Cyface GmbH
  *
  * This file is part of the Cyface Publish Plugin for Android.
  *
@@ -42,9 +42,9 @@ plugins {
 // Setup Javadoc and source tasks for all build variants.
 project.android.libraryVariants.all { variant ->
 
-    def javaDocDestDir = file("${buildDir}/docs/${variant.name}Javadoc")
+    def javaDocDestDir = layout.buildDirectory.dir("docs/${variant.name}Javadoc")
     def javadocTaskName = "${variant.name}Javadoc"
-    def javadoc = tasks.create(javadocTaskName, Javadoc) {
+    def javadoc = tasks.register(javadocTaskName, Javadoc) {
         description "Generates Javadoc for ${variant.name}."
         source = variant.javaCompileProvider.get().source
         destinationDir = javaDocDestDir

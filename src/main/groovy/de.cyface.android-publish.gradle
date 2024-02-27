@@ -163,7 +163,10 @@ publishing {
                 artifactId "${project.name}${flavor.contains('movebis') ? 'movebis' : ''}"
                 project.logger.lifecycle('artifactId: ' + artifactId)
                 version android.defaultConfig.versionName
-                artifact(variant.packageLibraryProvider.get().archivePath)
+                variant.outgoing.artifact(variant.packageLibraryProvider) {
+                    builtBy variant.packageLibraryProvider
+                    type 'aar'
+                }
                 // Put javadoc and sources into jar
                 println "publish dependency: ${project.name}${variant.name.capitalize()} on ${variant.name}JavadocJar/SourcesJar"
                 println ""

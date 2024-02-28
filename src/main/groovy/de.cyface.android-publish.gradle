@@ -88,7 +88,7 @@ project.android.libraryVariants.all { variant ->
     }
 
     // Setup Javadoc and source tasks for all build variants.
-    def javaDocDestDir = layout.buildDirectory.dir("docs/javadoc")
+    def javaDocDestDir = layout.buildDirectory.dir("docs/javadoc").get().asFile
     // Using `tasks.create` as with `task.register` the `destinationDir` is not found
     def javadoc = tasks.create("javadoc", Javadoc) {
         description "Generates Javadoc."

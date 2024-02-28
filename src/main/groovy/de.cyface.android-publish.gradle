@@ -45,15 +45,9 @@ plugins {
  * @param variant The variant from `android.libraryVariants`
  * @return `true` if this variant can be skipped in release
  */
-def isDebugOrMock(variant) {
+static def isDebugOrMock(variant) {
     def isDebug = variant.buildType.name == 'debug'
     def isMock = variant.flavorName?.contains('Mock')
-    def is = isDebug || isMock
-    if (!is) {
-        println "#131 OK start"
-        println variant.name
-        println "#131 OK end"
-    }
     return isDebug || isMock
 }
 

@@ -35,7 +35,7 @@ plugins {
 }
 
 group = "de.cyface"
-version = "0.0.0" // Automatically overwritten by CI
+version = "1.0.7-alpha29" // Automatically overwritten by CI
 
 repositories {
     gradlePluginPortal() // so that external plugins can be resolved in dependencies section
@@ -44,18 +44,18 @@ repositories {
 publishing {
     // Authenticate at the repository
     repositories {
-        maven {
-            url = uri("https://maven.pkg.github.com/cyface-de/android-publish")
+        maven { // FIXME
+            /*url = uri("https://maven.pkg.github.com/cyface-de/android-publish")
             credentials {
                 username = project.findProperty("githubUser").toString()
                 password = project.findProperty("githubToken").toString()
-            }
+            }*/
 
             /*
              * Use this instead of the above to publish to a local folder under "build/repo".
              * This is useful for debugging the publication code.
              */
-            //url = layout.buildDirectory.dir("repo")
+            url = layout.buildDirectory.dir("repo")
         }
     }
 }

@@ -41,10 +41,9 @@ plugins {
 
 // Setup Javadoc and source tasks for all build variants.
 project.android.libraryVariants.all { variant ->
-
-    def javaDocDestDir = layout.buildDirectory.dir("docs/${variant.name}Javadoc")
+    def javaDocDestDir = file("${buildDir}/docs/${variant.name}Javadoc")
     def javadocTaskName = "${variant.name}Javadoc"
-    def javadoc = tasks.register(javadocTaskName, Javadoc) {
+    def javadoc = tasks.create(javadocTaskName, Javadoc) {
         description "Generates Javadoc for ${variant.name}."
         source = variant.javaCompileProvider.get().source
         destinationDir = javaDocDestDir
@@ -74,80 +73,47 @@ project.android.libraryVariants.all { variant ->
         from sourceDirs
         archiveClassifier.set('sources')
     }
-
-    // Attempt to define dependency (Gradle 8 requirement), but does not work [RFR-412]
-    /*def isDebug = variant.getBuildType().name == 'debug'
-    def isFlavored = !variant.flavorName.isEmpty()
-    def flavor = variant.flavorName.replace('_', '-')
-    def isMock = isFlavored && flavor.contains('Mock')
-    if (!isDebug && !isMock) {
-        tasks.named("publish${project.name.capitalize()}${variant.name.capitalize()}PublicationToMavenRepository") {
-            println "dependsOn publish${project.name.capitalize()}${variant.name.capitalize()}PublicationToMavenRepository on ${variant.name}JavadocJar"
-            dependsOn("${variant.name}JavadocJar")
-            dependsOn("${variant.name}SourcesJar")
-        }
-        tasks.named("publish${project.name.capitalize()}${variant.name.capitalize()}PublicationToMavenLocal") {
-            println "dependsOn publish${project.name.capitalize()}${variant.name.capitalize()}PublicationToMavenLocal on ${variant.name}JavadocJar"
-            dependsOn("${variant.name}JavadocJar")
-            dependsOn("${variant.name}SourcesJar")
-        }
-    }*/
 }
 
 // This is probably required to run Javadoc and Source creation on each invocation of publish
 publish.dependsOn 'assemble'
 
-// Attempt to define dependency for error occurring in Gradle 8 [RFR-412]
-/*tasks.withType(PublishToMavenRepository) { task ->
-    println "task: ${task.name}"
-    def projectName = "${project.name.capitalize()}"
-    println "project: ${projectName}"
-    def match = task.name =~ /^publish($projectName)(.*)PublicationTo(.*)$/
-    def variantName = "${match[0][2]}" // Release (persistence) or e.g. CyfaceFullRelease
-    // For some reasons, the publish task is also dependent on the other projectFlavor javadocJar
-    //def variant = variantName.uncapitalize()
-    def suffix = variantName.replace("Cyface", "").replace("Movebis", "")
-    // Persistence
-    if (suffix == "Release") {
-        def variant = suffix.uncapitalize()
-        println "dependsOn ${variant}SourcesJar/JavadocJar"
-        dependsOn(["${variant}JavadocJar", "${variant}SourcesJar"])
-    }
-    // Datacapturing, Synchronization
-    else {
-        def variant = "movebis${suffix}"
-        def variant2 = "cyface${suffix}"
-        println "dependsOn ${variant}JavadocJar/SourcesJar ${variant2}JavadocJar/SourcesJar"
-        dependsOn(["${variant}JavadocJar", "${variant}SourcesJar", "${variant2}JavadocJar", "${variant2}SourcesJar"])
-    }
-}*/
-
 publishing {
-       // Authenticate at the repository
-        repositories {
-            maven {
-                url = uri("https://maven.pkg.github.com/cyface-de/android-backend")
-                credentials {
-                    username = project.findProperty("githubUser").toString()
-                    password = project.findProperty("githubToken").toString()
-                }
+   // Authenticate at the repository
+    repositories {
+        maven {
+            url = uri("https://maven.pkg.github.com/cyface-de/android-backend")
+            credentials {
+                username = project.findProperty("githubUser").toString()
+                password = project.findProperty("githubToken").toString()
             }
-
-            /*
-             * Uncomment this to get all publications to a local folder under "build/repo".
-             * This is useful for debugging the publication code without uploading stuff to the
-             * server.
-             */
-            /*maven {
-                name = 'myRepo'
-                url = layout.buildDirectory.dir("repo")
-            }*/
         }
-    // Create publications for all release variants.
-    publications {
-        project.android.libraryVariants.all { variant ->
 
-            // Only publish full release variants
+        /*
+         * Uncomment this to get all publications to a local folder under "build/repo".
+         * This is useful for debugging the publication code without uploading stuff to the
+         * server.
+         */
+        /*maven {
+            name = 'myRepo'
+            url = layout.buildDirectory.dir("repo")
+        }*/
+        //mavenLocal()
+    }
+
+    // Ensure publication tasks depend on Javadoc and sources generation
+    afterEvaluate {
+        project.android.libraryVariants.all { variant ->
+            def variantNameCapitalized = variant.name.capitalize()
+            def bundleTaskName = "bundle${variantNameCapitalized}Aar"
+
+            /*tasks.named("publish${$variantNameCapitalized}PublicationToMavenRepository").configure {
+            dependsOn tasks.named("${variant.name}JavadocJar"), tasks.named("${variant.name}SourcesJar")
+            }
+            tasks.named("publish${$variantNameCapitalized}PublicationToMavenLocal").configure {
+                dependsOn tasks.named("${variant.name}JavadocJar"), tasks.named("${variant.name}SourcesJar")
+            }*/
+
             def isDebug = variant.getBuildType().name == 'debug'
             def isFlavored = !variant.flavorName.isEmpty()
             def flavor = variant.flavorName.replace('_', '-')
@@ -155,23 +121,89 @@ publishing {
             if (isDebug || isMock) {
                 return
             }
+            def projectName = "${project.name.capitalize()}"
+            println "AfterEvaluate project: ${projectName}"
+            println "AfterEvaluate Variant: ${variant.name}"
 
-            // Configure artifacts
-            "${project.name}${variant.name.capitalize()}"(MavenPublication) {
-                groupId = 'de.cyface'
-                // The artifactId must not contain upper case chars [STAD-234]
-                artifactId "${project.name}${flavor.contains('movebis') ? 'movebis' : ''}"
-                project.logger.lifecycle('artifactId: ' + artifactId)
-                version android.defaultConfig.versionName
-                variant.outgoing.artifact(variant.packageLibraryProvider) {
-                    builtBy variant.packageLibraryProvider
-                    type 'aar'
+            tasks.each { task ->
+                if (task.name.startsWith('publish')) {
+                    println "task: " + task.name
                 }
-                // Put javadoc and sources into jar
-                println "publish dependency: ${project.name}${variant.name.capitalize()} on ${variant.name}JavadocJar/SourcesJar"
-                println ""
-                artifact(tasks.named("${variant.name}JavadocJar"))
-                artifact(tasks.named("${variant.name}SourcesJar"))
+            }
+
+            tasks.named("publish${projectName}${variantNameCapitalized}PublicationToMavenRepository").configure {
+                dependsOn tasks.named(bundleTaskName)
+            }
+
+            tasks.named("publish${projectName}${variantNameCapitalized}PublicationToMavenLocal").configure {
+                dependsOn tasks.named(bundleTaskName)
+            }
+        }
+    }
+
+    // Attempt to define dependency for error occurring in Gradle 8 [RFR-412]
+    // FIXME: Wird das hier überhaupt verwendet?
+    tasks.withType(PublishToMavenRepository) { task ->
+        println "task: ${task.name}"
+        def projectName = "${project.name.capitalize()}"
+        println "project: ${projectName}"
+        def match = task.name =~ /^publish($projectName)(.*)PublicationTo(.*)$/
+        def variantName = "${match[0][2]}" // Release (persistence) or e.g. CyfaceFullRelease
+        // For some reasons, the publish task is also dependent on the other projectFlavor javadocJar
+        //def variant = variantName.uncapitalize()
+        def suffix = variantName.replace("Cyface", "").replace("Movebis", "")
+        // Persistence
+        if (suffix == "Release") {
+            def variant = suffix.uncapitalize()
+            println "dependsOn ${variant}SourcesJar/JavadocJar"
+            dependsOn(["${variant}JavadocJar", "${variant}SourcesJar"])
+        }
+        // Datacapturing, Synchronization
+        else {
+            def variant = "movebis${suffix}"
+            def variant2 = "cyface${suffix}"
+            println "dependsOn ${variant}JavadocJar/SourcesJar ${variant2}JavadocJar/SourcesJar bundle${variant.capitalize()}Aar bundle${variant2.capitalize()}Aar"
+            dependsOn(["${variant}JavadocJar", "${variant}SourcesJar", "${variant2}JavadocJar", "${variant2}SourcesJar", "bundle${variant.capitalize()}Aar", "bundle${variant2.capitalize()}Aar"])
+        }
+    }
+
+    // Create publications for all release variants.
+    publications {
+        project.android.libraryVariants.all { variant ->
+            def isDebug = variant.getBuildType().name == 'debug'
+            def isFlavored = !variant.flavorName.isEmpty()
+            def flavor = variant.flavorName.replace('_', '-')
+            def isMock = isFlavored && flavor.contains('Mock')
+            if (isDebug || isMock) {
+                return
+            }
+            println "Process Variant: ${variant.name}"
+
+            def variantNameCapitalized = variant.name.capitalize()
+            def artifactIdSuffix = flavor.contains('movebis') ? 'movebis' : ''
+
+            // Define the Maven publication for this variant
+            "${project.name}${variantNameCapitalized}"(MavenPublication) {
+                // GroupId, artifactId, and version configuration
+                groupId = 'de.cyface'
+                artifactId = "${project.name}${artifactIdSuffix}"
+                version = project.version
+
+                from components.findByName("android")
+
+                // Include AAR artifact
+                artifact(variant.packageLibraryProvider.get().archivePath)
+
+                // Explicitly declare dependencies
+                artifact(tasks["${variant.name}JavadocJar"].outputs.files.singleFile) {
+                    classifier 'javadoc'
+                }
+                artifact(tasks["${variant.name}SourcesJar"].outputs.files.singleFile) {
+                    classifier 'sources'
+                }
+
+                // Logging for diagnostic purposes
+                project.logger.lifecycle("Configuring publication for variant: $variant.name with ArtifactId: $artifactId")
             }
         }
     }

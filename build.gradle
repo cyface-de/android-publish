@@ -17,7 +17,7 @@
  * along with the Cyface Publish Plugin for Android. If not, see <http://www.gnu.org/licenses/>.
  */
 buildscript {
-    ext.gradle_version = '7.4.2' // Major release available but breaks publish [RFR-412]
+    ext.gradle_version = '8.2.2' // Major release available but breaks publish [RFR-412]
 
     repositories {
         google()
@@ -50,12 +50,6 @@ publishing {
                 username = project.findProperty("githubUser").toString()
                 password = project.findProperty("githubToken").toString()
             }
-
-            /*
-             * Use this instead of the above to publish to a local folder under "build/repo".
-             * This is useful for debugging the publication code.
-             */
-            //url = layout.buildDirectory.dir("repo")
         }
     }
 }

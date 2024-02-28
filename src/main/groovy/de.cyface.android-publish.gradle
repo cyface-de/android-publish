@@ -39,88 +39,95 @@ plugins {
  * reference.
  */
 
-// Setup Javadoc and source tasks for all build variants.
-project.android.libraryVariants.all { variant ->
+/**
+ * Identify variants which are not of interest in the publication process.
+ *
+ * @param variant The variant from `android.libraryVariants`
+ * @return `true` if this variant can be skipped in release
+ */
+def isDebugOrMock(variant) {
+    def isDebug = variant.buildType.name == 'debug'
+    def isMock = variant.flavorName?.contains('Mock')
+    def is = isDebug || isMock
+    if (!is) {
+        println "#131 OK start"
+        println variant.name
+        println "#131 OK end"
+    }
+    return isDebug || isMock
+}
 
-    def javaDocDestDir = file("${buildDir}/docs/${variant.name}Javadoc")
-    def javadocTaskName = "${variant.name}Javadoc"
-    def javadoc = tasks.create(javadocTaskName, Javadoc) {
-        description "Generates Javadoc for ${variant.name}."
-        source = variant.javaCompileProvider.get().source
+/**
+ * Selects one variant per module to generate exactly one javadoc/sources.jar.
+ *
+ * For `cyface-de/android-backend` datacapturing and synchronization module the variant
+ * `movebisFullRelease` is selected and for the persistence module the variant `release`.
+ *
+ * @param variant
+ * @return
+ */
+static def isVariantForDocs(variant) {
+    return variant.name == 'movebisFullRelease' || variant.name == 'release'
+}
+
+/**
+ * Only generate one sources and javadoc jar per module.
+ *
+ * Before switching to Gradle 8 we generates one per variant but with identical names, i.e. they
+ * did overwrite themselves. When switching to Gradle 8 this does not work anymore as we need to
+ * define each dependency explicitly and this way the javadocsJar of another flavor is used. We
+ * tried to generate a variant-specific Javadoc/SourcesJar but they contain the same bytes anyways.
+ * and with
+ * - `def kebabCaseName = variant.name.replaceAll("([a-z])([A-Z]+)", '$1-$2').toLowerCase()` and
+ * - `archiveClassifier.set(kebabCaseName + '-javadoc')` in this section and
+ * - `classifier kebabCaseName + '-javadoc'` in the publications section
+ * the jars are named like `datacapturing-cyface-full-release-javadoc.jar` which do not apply to the
+ * naming convention and no links are added to the POM by gradle. Thus, we only generate a variant-
+ * unspecific javadoc/sources jar.
+ *
+ * But we need to use `libraryVariants` for this as there is no possibility anymore to define the
+ * classpath without variant context. Our workaround is to select one specific variant.
+ */
+project.android.libraryVariants.all { variant ->
+    if (!isVariantForDocs(variant)) {
+        return
+    }
+
+    // Setup Javadoc and source tasks for all build variants.
+    def javaDocDestDir = file("${buildDir}/docs/javadoc")
+    // Using `tasks.create` as with `task.register` the `destinationDir` is not found
+    def javadoc = tasks.create("javadoc", Javadoc) {
+        description "Generates Javadoc."
+        source = android.sourceSets.main.java.srcDirs
         destinationDir = javaDocDestDir
         classpath += files(android.getBootClasspath().join(File.pathSeparator))
         def compileClassPath = variant.javaCompileProvider.get().classpath
         classpath += files(compileClassPath)
-        options.links("http://docs.oracle.com/javase/7/docs/api/")
-        options.links("http://d.android.com/reference/")
         exclude '**/BuildConfig.java'
         exclude '**/R.java'
         failOnError false
     }
 
-    tasks.register("${variant.name}JavadocJar", Jar) {
-        dependsOn "${javadocTaskName}"
-        description "Puts Javadoc for ${variant.name} in a jar."
+    tasks.register("javadocJar", Jar) {
+        dependsOn "javadoc"
+        description "Puts Javadoc in a jar"
         archiveClassifier.set('javadoc')
         from javadoc.destinationDir
     }
 
-    def sourceDirs = variant.sourceSets.collect {
+    def sourceDirs = android.sourceSets.collect {
         it.javaDirectories // includes Kotlin sources
     }
 
-    tasks.register("${variant.name}SourcesJar", Jar) {
-        description "Puts sources for ${variant.name} in a jar."
+    tasks.register("sourcesJar", Jar) {
+        description "Puts sources in jar"
         from sourceDirs
         archiveClassifier.set('sources')
     }
-
-    // Attempt to define dependency (Gradle 8 requirement), but does not work [RFR-412]
-    /*def isDebug = variant.getBuildType().name == 'debug'
-    def isFlavored = !variant.flavorName.isEmpty()
-    def flavor = variant.flavorName.replace('_', '-')
-    def isMock = isFlavored && flavor.contains('Mock')
-    if (!isDebug && !isMock) {
-        tasks.named("publish${project.name.capitalize()}${variant.name.capitalize()}PublicationToMavenRepository") {
-            println "dependsOn publish${project.name.capitalize()}${variant.name.capitalize()}PublicationToMavenRepository on ${variant.name}JavadocJar"
-            dependsOn("${variant.name}JavadocJar")
-            dependsOn("${variant.name}SourcesJar")
-        }
-        tasks.named("publish${project.name.capitalize()}${variant.name.capitalize()}PublicationToMavenLocal") {
-            println "dependsOn publish${project.name.capitalize()}${variant.name.capitalize()}PublicationToMavenLocal on ${variant.name}JavadocJar"
-            dependsOn("${variant.name}JavadocJar")
-            dependsOn("${variant.name}SourcesJar")
-        }
-    }*/
 }
 
 // This is probably required to run Javadoc and Source creation on each invocation of publish
 publish.dependsOn 'assemble'
-
-// Attempt to define dependency for error occurring in Gradle 8 [RFR-412]
-/*tasks.withType(PublishToMavenRepository) { task ->
-    println "task: ${task.name}"
-    def projectName = "${project.name.capitalize()}"
-    println "project: ${projectName}"
-    def match = task.name =~ /^publish($projectName)(.*)PublicationTo(.*)$/
-    def variantName = "${match[0][2]}" // Release (persistence) or e.g. CyfaceFullRelease
-    // For some reasons, the publish task is also dependent on the other projectFlavor javadocJar
-    //def variant = variantName.uncapitalize()
-    def suffix = variantName.replace("Cyface", "").replace("Movebis", "")
-    // Persistence
-    if (suffix == "Release") {
-        def variant = suffix.uncapitalize()
-        println "dependsOn ${variant}SourcesJar/JavadocJar"
-        dependsOn(["${variant}JavadocJar", "${variant}SourcesJar"])
-    }
-    // Datacapturing, Synchronization
-    else {
-        def variant = "movebis${suffix}"
-        def variant2 = "cyface${suffix}"
-        println "dependsOn ${variant}JavadocJar/SourcesJar ${variant2}JavadocJar/SourcesJar"
-        dependsOn(["${variant}JavadocJar", "${variant}SourcesJar", "${variant2}JavadocJar", "${variant2}SourcesJar"])
-    }
-}*/
 
 publishing {
        // Authenticate at the repository
@@ -132,27 +139,39 @@ publishing {
                     password = project.findProperty("githubToken").toString()
                 }
             }
-
-            /*
-             * Uncomment this to get all publications to a local folder under "build/repo".
-             * This is useful for debugging the publication code without uploading stuff to the
-             * server.
-             */
-            /*maven {
-                name = 'myRepo'
-                url = layout.buildDirectory.dir("repo")
-            }*/
         }
+
+    // Ensure publication tasks depend on Javadoc and sources generation
+    afterEvaluate {
+        project.android.libraryVariants.all { variant ->
+            if (isDebugOrMock(variant)) {
+                return
+            }
+
+            def variantNameCapitalized = variant.name.capitalize()
+            def bundleTaskName = "bundle${variantNameCapitalized}Aar"
+
+            def projectName = "${project.name.capitalize()}"
+
+            tasks.named("publish${projectName}${variantNameCapitalized}PublicationToMavenRepository").configure {
+                dependsOn tasks.named(bundleTaskName),
+                        tasks.named("javadocJar"),
+                        tasks.named("sourcesJar")
+
+            }
+
+            tasks.named("publish${projectName}${variantNameCapitalized}PublicationToMavenLocal").configure {
+                dependsOn tasks.named(bundleTaskName),
+                        tasks.named("javadocJar"),
+                        tasks.named("sourcesJar")
+            }
+        }
+    }
+
     // Create publications for all release variants.
     publications {
         project.android.libraryVariants.all { variant ->
-
-            // Only publish full release variants
-            def isDebug = variant.getBuildType().name == 'debug'
-            def isFlavored = !variant.flavorName.isEmpty()
-            def flavor = variant.flavorName.replace('_', '-')
-            def isMock = isFlavored && flavor.contains('Mock')
-            if (isDebug || isMock) {
+            if (isDebugOrMock(variant)) {
                 return
             }
 
@@ -160,15 +179,23 @@ publishing {
             "${project.name}${variant.name.capitalize()}"(MavenPublication) {
                 groupId = 'de.cyface'
                 // The artifactId must not contain upper case chars [STAD-234]
-                artifactId "${project.name}${flavor.contains('movebis') ? 'movebis' : ''}"
+                artifactId "${project.name}${variant.flavorName.contains('movebis') ? 'movebis' : ''}"
                 project.logger.lifecycle('artifactId: ' + artifactId)
                 version android.defaultConfig.versionName
+
+                // Add main artifact
                 artifact(variant.packageLibraryProvider.get().archivePath)
+
                 // Put javadoc and sources into jar
-                println "publish dependency: ${project.name}${variant.name.capitalize()} on ${variant.name}JavadocJar/SourcesJar"
-                println ""
-                artifact(tasks.named("${variant.name}JavadocJar"))
-                artifact(tasks.named("${variant.name}SourcesJar"))
+                artifact(tasks["javadocJar"].outputs.files.singleFile) {
+                    classifier 'javadoc'
+                }
+                artifact(tasks["sourcesJar"].outputs.files.singleFile) {
+                    classifier 'sources'
+                }
+
+                // Logging for diagnostic purposes
+                project.logger.lifecycle("Configuring publication for variant: $variant.name with ArtifactId: $artifactId")
             }
         }
     }

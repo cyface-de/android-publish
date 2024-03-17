@@ -34,9 +34,11 @@ plugins {
  * which should speed up the build process if certain tasks are not needed at all.
  * See: https://docs.gradle.org/7.2/userguide/more_about_tasks.html
  *
- * The goal of this code is to create artifacts for publication only for the two release variants for
- * Cyface and Movebis. Each Artifact is packaged together with its Javadoc and Sources for easy
- * reference.
+ * This code was again heavily refactored in March 2024 to work with Gradle 8. After that, the
+ * flavors where removed.
+ *
+ * The goal of this code is to create artifacts for publication only for the release variant.
+ * Each Artifact is packaged together with its Javadoc and Sources for easy reference.
  */
 
 /**
@@ -45,23 +47,20 @@ plugins {
  * @param variant The variant from `android.libraryVariants`
  * @return `true` if this variant can be skipped in release
  */
-static def isDebugOrMock(variant) {
-    def isDebug = variant.buildType.name == 'debug'
-    def isMock = variant.flavorName?.contains('Mock')
-    return isDebug || isMock
+static def isDebug(variant) {
+    return variant.buildType.name == 'debug'
 }
 
 /**
  * Selects one variant per module to generate exactly one javadoc/sources.jar.
  *
- * For `cyface-de/android-backend` datacapturing and synchronization module the variant
- * `movebisFullRelease` is selected and for the persistence module the variant `release`.
+ * For the `cyface-de/android-backend` modules the variant `release` is selected.
  *
  * @param variant
  * @return
  */
 static def isVariantForDocs(variant) {
-    return variant.name == 'movebisFullRelease' || variant.name == 'release'
+    return variant.name == 'release'
 }
 
 /**
@@ -138,7 +137,7 @@ publishing {
     // Ensure publication tasks depend on Javadoc and sources generation
     afterEvaluate {
         project.android.libraryVariants.all { variant ->
-            if (isDebugOrMock(variant)) {
+            if (isDebug(variant)) {
                 return
             }
 
@@ -165,15 +164,14 @@ publishing {
     // Create publications for all release variants.
     publications {
         project.android.libraryVariants.all { variant ->
-            if (isDebugOrMock(variant)) {
+            if (isDebug(variant)) {
                 return
             }
 
             // Configure artifacts
             "${project.name}${variant.name.capitalize()}"(MavenPublication) {
                 groupId = 'de.cyface'
-                // The artifactId must not contain upper case chars [STAD-234]
-                artifactId "${project.name}${variant.flavorName.contains('movebis') ? 'movebis' : ''}"
+                artifactId "${project.name}"
                 project.logger.lifecycle('artifactId: ' + artifactId)
                 version android.defaultConfig.versionName
 

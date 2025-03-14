@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2023 Cyface GmbH
+ * Copyright 2021-2025 Cyface GmbH
  *
  * This file is part of the Cyface Publish Plugin for Android.
  *
@@ -17,7 +17,7 @@
  * along with the Cyface Publish Plugin for Android. If not, see <http://www.gnu.org/licenses/>.
  */
 buildscript {
-    ext.gradle_version = '8.2.2' // Major release available but breaks publish [RFR-412]
+    ext.gradle_version = '8.9.0'
 
     repositories {
         google()

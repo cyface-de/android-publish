@@ -186,6 +186,21 @@ publishing {
                     classifier 'sources'
                 }
 
+                // Add transitive `api` dependencies explicitly to POM (were missing)
+                pom.withXml {
+                    def dependenciesNode = asNode().appendNode('dependencies')
+
+                    configurations.api.allDependencies.each { dep ->
+                        if (dep.group != null && dep.name != null && dep.version != null) {
+                            def dependencyNode = dependenciesNode.appendNode('dependency')
+                            dependencyNode.appendNode('groupId', dep.group)
+                            dependencyNode.appendNode('artifactId', dep.name)
+                            dependencyNode.appendNode('version', dep.version)
+                            dependencyNode.appendNode('scope', 'compile')
+                        }
+                    }
+                }
+
                 // Logging for diagnostic purposes
                 project.logger.lifecycle("Configuring publication for variant: $variant.name with ArtifactId: $artifactId")
             }

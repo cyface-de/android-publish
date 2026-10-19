@@ -3,9 +3,43 @@
 This is a https://docs.gradle.org/current/userguide/sharing_build_logic_between_subprojects.html#sec:convention_plugins[convention plugin] implemented as https://docs.gradle.org/current/userguide/custom_plugins.html#sec:precompiled_plugins[precompiled script plugin].
 
 
+== Usage
+
+Other Cyface Android libraries apply the plugin `de.cyface.android-publish`. It applies `com.android.library` and `maven-publish`, and then:
+
+. creates the tasks `javadoc`, `javadocJar` and `sourcesJar`, only for the release variant;
+. creates a Maven publication with the AAR, the Javadoc JAR and the sources JAR for each variant that is not a debug variant;
+. adds the dependencies of the `api` configuration to the POM, because Gradle does not add these transitive dependencies itself.
+
+The plugin publishes the libraries that apply it to the GitHub Packages repository of `cyface-de/android-backend`. The plugin itself is published to `cyface-de/android-publish`. Both read the credentials from the properties `githubUser` and `githubToken`.
+
+== Development
+
+The project has two files: `build.gradle` builds and publishes the plugin, and `src/main/groovy/de.cyface.android-publish.gradle` is the plugin (Groovy DSL). Gradle 8.13, Android Gradle Plugin 8.9.0, Java 17 (Temurin). The project has no tests: `./gradlew build` validates the plugin.
+
+Copy `gradle.properties.template` to `gradle.properties` and add `githubUser` and `githubToken`.
+
+  ./gradlew build      # build and validate the plugin
+  ./gradlew publish    # publish to GitHub Packages
+
+== GitHub Workflows
+
+- `gradle_build.yml` builds each push and pull request to `main` and `release-*`. Pull requests from forks are skipped.
+- `gradle_publish.yml` runs on version tags: it publishes the plugin to GitHub Packages and creates the GitHub release. It gives the token to Gradle as `ORG_GRADLE_PROJECT_githubToken`, not in a file.
+
+Rules of the workflows (hardening of CY-6748): do not use `${{ github.ref_name }}` or other event values directly in a `run:` script, pass them through `env:`; pass secrets through `env:` of the step that needs them; use `runs-on: ubuntu-26.04`, not `ubuntu-latest`.
+
+The organization-wide cleanup in `cyface-de/production` (`.github/workflows/registry_cleanup.yml`) deletes old package versions.
+
+== Release a new Version
+
+- The CI sets the `version` in `build.gradle` from the tag. Do not change it manually.
+- Create an annotated tag with a semantic version (for example `1.1.3`) on `main` and push it. The body of the tag message becomes the release notes.
+- A tag with a suffix (for example `1.1.3-beta1`) becomes a pre-release.
+
 [[license]]
 == License
-Copyright 2021-2023 Cyface GmbH
+Copyright 2021-2026 Cyface GmbH
 
 This file is part of the Cyface Publish Plugin for Android.
 

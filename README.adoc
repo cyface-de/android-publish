@@ -7,15 +7,16 @@ This is a https://docs.gradle.org/current/userguide/sharing_build_logic_between_
 
 Other Cyface Android libraries apply the plugin `de.cyface.android-publish`. It applies `com.android.library` and `maven-publish`, and then:
 
-. creates the tasks `javadoc`, `javadocJar` and `sourcesJar`, only for the release variant;
-. creates a Maven publication with the AAR, the Javadoc JAR and the sources JAR for each variant that is not a debug variant;
-. adds the dependencies of the `api` configuration to the POM, because Gradle does not add these transitive dependencies itself.
+. configures the AGP publication of the release variant with a sources JAR and a Javadoc JAR (`android.publishing.singleVariant('release')`);
+. creates a Maven publication `<module>Release` from the software component `release`. AGP writes the `api` and `implementation` dependencies into the POM.
+
+The version of the publication is the `versionName` of the library. Version 2.x of the plugin needs AGP 9, version 1.x is for AGP 8.
 
 The plugin publishes the libraries that apply it to the GitHub Packages repository of `cyface-de/android-backend`. The plugin itself is published to `cyface-de/android-publish`. Both read the credentials from the properties `githubUser` and `githubToken`.
 
 == Development
 
-The project has two files: `build.gradle` builds and publishes the plugin, and `src/main/groovy/de.cyface.android-publish.gradle` is the plugin (Groovy DSL). Gradle 8.13, Android Gradle Plugin 8.9.0, Java 17 (Temurin). The project has no tests: `./gradlew build` validates the plugin.
+The project has two files: `build.gradle` builds and publishes the plugin, and `src/main/groovy/de.cyface.android-publish.gradle` is the plugin (Groovy DSL). Gradle 9.7.1, Android Gradle Plugin 9.4.1, Java 17 (Temurin). The project has no tests: `./gradlew build` validates the plugin.
 
 Copy `gradle.properties.template` to `gradle.properties` and add `githubUser` and `githubToken`.
 
